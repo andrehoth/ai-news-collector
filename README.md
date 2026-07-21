@@ -1,8 +1,43 @@
 # ai-news-collector
 
-Automated RSS feed collector for AI news articles. Part of the Search-Collect-Process pipeline for AAI-501: Intro to AI and ML at the University of San Diego.
+A lightweight, automated pipeline for collecting AI news articles from curated RSS feeds. Runs daily via cron, deduplicates by URL, normalizes metadata, and stores results in a local SQLite database for downstream search and analysis.
 
-Fetches articles daily from six AI news sources, deduplicates by URL, normalizes metadata, and stores results in a local SQLite database for downstream search and processing.
+This is the **Collect** phase of a three-phase Search-Collect-Process pipeline. Search and Process phases are planned for future development.
+
+---
+
+## Status
+
+| Phase | Status |
+|---|---|
+| Collect | Complete |
+| Search | Planned |
+| Process | Planned |
+
+---
+
+## How it works
+
+Six RSS feeds are fetched daily by a cron job. Each entry is deduplicated by URL hash, normalized to a consistent schema, and inserted into a local SQLite database. Feed errors are logged to a separate table for periodic review. The collected database is available for querying on demand.
+
+```
+Cron trigger (daily 6 AM)
+        |
+        v
+Fetch via feedparser  <-- SOURCES registry (6 RSS feeds)
+        |
+        v
+Deduplicate  <-- URL hash check against articles table
+        |
+        v
+Normalize  <-- UTC timestamps, UUID assignment, field cleaning
+        |
+        v
+Store to SQLite  --> articles.db
+        |
+        v
+Available for search and retrieval
+```
 
 ---
 
@@ -16,6 +51,23 @@ Fetches articles daily from six AI news sources, deduplicates by URL, normalizes
 | TechCrunch AI | `techcrunch.com/category/artificial-intelligence/feed/` |
 | Ars Technica AI | `arstechnica.com/ai/feed/` |
 | VentureBeat AI | `venturebeat.com/category/ai/feed/` |
+
+---
+
+## Sample output
+
+After a typical daily run, the database contains entries across all six sources:
+
+```
+('TechCrunch AI',   'Jack Dorsey is taking on Slack with Buzz ...',            '2026-07-21T19:43:41+00:00')
+('The Decoder',     'An AI system helped Pakistani judges clear backlogs ...',  '2026-07-21T19:12:20+00:00')
+('IEEE Spectrum AI','Why AI Needs a "Genie Coefficient"',                       '2026-07-21T17:41:11+00:00')
+('Ars Technica AI', 'Anthropic's $1.5B copyright settlement approved ...',     '2026-07-21T17:33:14+00:00')
+('VentureBeat AI',  'The AI agent economy is already here ...',                '2026-07-21T16:45:02+00:00')
+('STAT News',       'How AI is reshaping clinical trial design ...',            '2026-07-21T15:22:18+00:00')
+
+Total articles collected: 100+
+```
 
 ---
 
@@ -41,7 +93,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Run manually to verify
+### 4. macOS SSL certificates (if using python.org or pyenv Python)
+
+```bash
+open /Applications/Python\ 3.x/Install\ Certificates.command
+```
+
+Replace `3.x` with your Python version. This is a one-time step.
+
+### 5. Run manually to verify
 
 ```bash
 python collect.py
@@ -88,7 +148,7 @@ The SQLite database lives at `data/articles.db` and contains two tables:
 | `summary` | TEXT | Feed-provided excerpt |
 | `collected_at` | TEXT | ISO 8601 UTC collection timestamp |
 
-**errors** — feed fetch errors for weekly review
+**errors** — feed fetch errors for periodic review
 
 | Column | Type | Description |
 |---|---|---|
@@ -112,7 +172,7 @@ FROM articles
 GROUP BY source
 ORDER BY article_count DESC;
 
--- Errors from the last 7 days (weekly review)
+-- Errors from the last 7 days
 SELECT source, error_msg, occurred_at
 FROM errors
 WHERE occurred_at >= date('now', '-7 days')
@@ -121,18 +181,7 @@ ORDER BY occurred_at DESC;
 
 ---
 
-## Weekly Review
-
-The pipeline process is reviewed weekly. The review checklist:
-
-- [ ] Query `errors` table for any failed fetches
-- [ ] Confirm all six RSS feed URLs return valid responses
-- [ ] Check article counts per source for unexpected drops
-- [ ] Update `SOURCES` dict in `collect.py` if any feed URLs have changed
-
----
-
-## Project Structure
+## Project structure
 
 ```
 ai-news-collector/
@@ -141,27 +190,4 @@ ai-news-collector/
 ├── README.md           # This file
 └── data/
     └── articles.db     # SQLite database (created on first run; gitignored)
-```
-
----
-
-## Pipeline Architecture
-
-```
-Cron trigger (daily 6 AM)
-        |
-        v
-Fetch via feedparser  <-- SOURCES registry (6 RSS feeds)
-        |
-        v
-Deduplicate  <-- URL hash check against articles table
-        |
-        v
-Normalize  <-- UTC timestamps, UUID assignment, field cleaning
-        |
-        v
-Store to SQLite  --> articles.db
-        |
-        v
-Available for search and retrieval
 ```
