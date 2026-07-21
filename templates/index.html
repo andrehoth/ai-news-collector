@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI News</title>
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────────── */
+    :root {
+      --bg:        #0f1117;
+      --surface:   #181c27;
+      --border:    #252a38;
+      --accent:    #4f8ef7;
+      --accent-dim:#1e3460;
+      --text:      #e2e6f0;
+      --muted:     #7a8099;
+      --tag-bg:    #1e2536;
+      --tag-text:  #8ba4d4;
+      --radius:    6px;
+      --mono:      "JetBrains Mono", "Fira Mono", "Courier New", monospace;
+    }
+
+    /* ── Reset ──────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .shell {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      padding: 40px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .header-row {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+    }
+    .wordmark {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .wordmark span {
+      color: var(--accent);
+    }
+    .db-count {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    /* ── Controls ───────────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    .controls input[type="text"],
+    .controls select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 0.875rem;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .controls input[type="text"] { flex: 1; min-width: 180px; }
+    .controls input[type="text"]:focus,
+    .controls select:focus { border-color: var(--accent); }
+    .controls select { cursor: pointer; }
+    .controls select option { background: var(--surface); }
+
+    .btn {
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 8px 18px;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .btn-ghost:hover { border-color: var(--muted); opacity: 1; color: var(--text); }
+
+    /* ── Results bar ────────────────────────────────────────────── */
+    .results-bar {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-bottom: 16px;
+    }
+    .results-bar strong { color: var(--text); }
+
+    /* ── Article cards ──────────────────────────────────────────── */
+    .card-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      transition: border-color 0.15s;
+    }
+    .card:hover { border-color: var(--accent-dim); }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .source-tag {
+      background: var(--tag-bg);
+      border-radius: 4px;
+      color: var(--tag-text);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+    .pub-date {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .card-title a { color: var(--text); }
+    .card-title a:hover { color: var(--accent); text-decoration: none; }
+
+    .card-summary {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Empty state ────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 64px 0;
+      color: var(--muted);
+    }
+    .empty p { margin-top: 8px; font-size: 0.875rem; }
+
+    /* ── Days toggle ────────────────────────────────────────────── */
+    .days-group {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .days-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .days-group select { width: auto; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="header-row">
+      <div class="wordmark">AI <span>News</span></div>
+      <div class="db-count">{{ total_count }} articles in database</div>
+    </div>
+  </header>
+
+  <form method="get" action="/">
+    <div class="controls">
+
+      <input
+        type="text"
+        name="q"
+        placeholder="Search titles and summaries..."
+        value="{{ keyword }}"
+        autofocus
+      >
+
+      <select name="source">
+        <option value="">All sources</option>
+        {% for s in sources %}
+        <option value="{{ s }}" {% if s == selected_source %}selected{% endif %}>
+          {{ s }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <div class="days-group">
+        <span class="days-label">Last</span>
+        <select name="days">
+          {% for d in ["7", "14", "30"] %}
+          <option value="{{ d }}" {% if d == days %}selected{% endif %}>{{ d }} days</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn">Search</button>
+
+      {% if keyword or selected_source or days != "7" %}
+      <a href="/" class="btn btn-ghost">Clear</a>
+      {% endif %}
+
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <strong>{{ result_count }}</strong>
+    article{% if result_count != 1 %}s{% endif %}
+    {% if keyword %} matching <em>"{{ keyword }}"</em>{% endif %}
+    {% if selected_source %} from {{ selected_source }}{% endif %}
+    in the last {{ days }} day{% if days != "1" %}s{% endif %}
+  </div>
+
+  {% if articles %}
+  <div class="card-list">
+    {% for article in articles %}
+    <div class="card">
+      <div class="card-meta">
+        <span class="source-tag">{{ article.source }}</span>
+        <span class="pub-date">
+          {{ article.published_at[:10] if article.published_at else "date unknown" }}
+        </span>
+      </div>
+      <div class="card-title">
+        <a href="{{ article.url }}" target="_blank" rel="noopener">{{ article.title }}</a>
+      </div>
+      {% if article.summary %}
+      <div class="card-summary">{{ article.summary | striptags }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty">
+    <div>No articles found.</div>
+    <p>Try a broader keyword, different source, or extend the date range.</p>
+  </div>
+  {% endif %}
+
+</div>
+</body>
+</html>
