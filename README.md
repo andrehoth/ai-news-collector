@@ -1,6 +1,6 @@
 # ai-news-collector
 
-A lightweight, automated pipeline for collecting AI news articles from curated RSS feeds. Runs daily via cron, deduplicates by URL, normalizes metadata, and stores results in a local SQLite database for downstream search and analysis.
+A lightweight, automated pipeline for collecting AI news articles from curated RSS feeds. Runs daily via launchd, deduplicates by URL, normalizes metadata, and stores results in a local SQLite database for downstream search and analysis.
 
 This is the **Collect** phase of a three-phase Search-Collect-Process pipeline. Search and Process phases are planned for future development.
 
@@ -18,10 +18,10 @@ This is the **Collect** phase of a three-phase Search-Collect-Process pipeline. 
 
 ## How it works
 
-Six RSS feeds are fetched daily by a cron job. Each entry is deduplicated by URL hash, normalized to a consistent schema, and inserted into a local SQLite database. Feed errors are logged to a separate table for periodic review. The collected database is available for querying on demand.
+Six RSS feeds are fetched daily by a launchd job. Each entry is deduplicated by URL hash, normalized to a consistent schema, and inserted into a local SQLite database. Feed errors are logged to a separate table for periodic review. The collected database is available for querying on demand.
 
 ```
-Cron trigger (daily 6 AM)
+launchd trigger (daily 6 AM, or on next wake if missed)
         |
         v
 Fetch via feedparser  <-- SOURCES registry (6 RSS feeds)
@@ -62,7 +62,7 @@ After a typical daily run, the database contains entries across all six sources:
 ('TechCrunch AI',   'Jack Dorsey is taking on Slack with Buzz ...',            '2026-07-21T19:43:41+00:00')
 ('The Decoder',     'An AI system helped Pakistani judges clear backlogs ...',  '2026-07-21T19:12:20+00:00')
 ('IEEE Spectrum AI','Why AI Needs a "Genie Coefficient"',                       '2026-07-21T17:41:11+00:00')
-('Ars Technica AI', 'Anthropic's $1.5B copyright settlement approved ...',     '2026-07-21T17:33:14+00:00')
+('Ars Technica AI', 'Anthropic copyright settlement approved ...',              '2026-07-21T17:33:14+00:00')
 ('VentureBeat AI',  'The AI agent economy is already here ...',                '2026-07-21T16:45:02+00:00')
 ('STAT News',       'How AI is reshaping clinical trial design ...',            '2026-07-21T15:22:18+00:00')
 
@@ -111,22 +111,53 @@ The database will be created at `data/articles.db` on first run.
 
 ---
 
-## Scheduling (macOS)
+## Scheduling (macOS — launchd)
 
-Add the following line to your crontab to run the collector every day at 6 AM:
+The pipeline is scheduled via launchd, which runs the job daily at 6 AM and catches any missed runs on next wake if the machine was asleep.
+
+Create a plist file at `~/Library/LaunchAgents/com.yourusername.ainewscollector.plist` with the following content, substituting your actual paths:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.yourusername.ainewscollector</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/.venv/bin/python3</string>
+        <string>/path/to/collect.py</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
+```
+
+Register the job with launchd:
 
 ```bash
-crontab -e
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.yourusername.ainewscollector.plist
 ```
 
-```
-0 6 * * *   /path/to/.venv/bin/python /path/to/collect.py
-```
-
-Replace both paths with your actual absolute paths. Confirm the job is registered:
+Confirm it registered:
 
 ```bash
-crontab -l
+launchctl list | grep ainewscollector
+```
+
+Test by triggering manually:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.yourusername.ainewscollector
 ```
 
 ---
