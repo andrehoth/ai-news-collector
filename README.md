@@ -1,8 +1,8 @@
 # ai-news-collector
 
-A lightweight, automated pipeline for collecting AI news articles from curated RSS feeds. Runs daily via launchd, deduplicates by URL, normalizes metadata, and stores results in a local SQLite database for downstream search and analysis.
+A lightweight, automated pipeline for collecting and searching AI news articles from curated RSS feeds. Runs daily via launchd, deduplicates by URL, normalizes metadata, and stores results in a local SQLite database. A local Flask web interface provides keyword search and filtering for article review.
 
-This is the **Collect** phase of a three-phase Search-Collect-Process pipeline. Search and Process phases are planned for future development.
+This is the **Collect** and **Search** phases of a three-phase Search-Collect-Process pipeline. The Process phase is planned for future development.
 
 ---
 
@@ -11,14 +11,14 @@ This is the **Collect** phase of a three-phase Search-Collect-Process pipeline. 
 | Phase | Status |
 |---|---|
 | Collect | Complete |
-| Search | Planned |
+| Search | Complete |
 | Process | Planned |
 
 ---
 
 ## How it works
 
-Six RSS feeds are fetched daily by a launchd job. Each entry is deduplicated by URL hash, normalized to a consistent schema, and inserted into a local SQLite database. Feed errors are logged to a separate table for periodic review. The collected database is available for querying on demand.
+Six RSS feeds are fetched daily by a launchd job. Each entry is deduplicated by URL hash, normalized to a consistent schema, and inserted into a local SQLite database. Feed errors are logged to a separate table for periodic review. A local Flask web interface provides keyword search, source filtering, and date range filtering over the collected articles.
 
 ```
 launchd trigger (daily 6 AM, or on next wake if missed)
@@ -36,7 +36,10 @@ Normalize  <-- UTC timestamps, UUID assignment, field cleaning
 Store to SQLite  --> articles.db
         |
         v
-Available for search and retrieval
+Flask web interface  <-- keyword, source, date range filters
+        |
+        v
+Article selected for review
 ```
 
 ---
@@ -101,13 +104,21 @@ open /Applications/Python\ 3.x/Install\ Certificates.command
 
 Replace `3.x` with your Python version. This is a one-time step.
 
-### 5. Run manually to verify
+### 5. Run the collector manually to verify
 
 ```bash
 python collect.py
 ```
 
 The database will be created at `data/articles.db` on first run.
+
+### 6. Start the search interface
+
+```bash
+python search.py
+```
+
+Then open `http://127.0.0.1:5000` in your browser. Press `Ctrl+C` to stop.
 
 ---
 
@@ -216,7 +227,10 @@ ORDER BY occurred_at DESC;
 
 ```
 ai-news-collector/
-├── collect.py          # Main pipeline script
+├── collect.py          # Collect phase -- RSS fetch, dedup, normalize, store
+├── search.py           # Search phase -- local Flask web interface
+├── templates/
+│   └── index.html      # Search UI template
 ├── requirements.txt    # Python dependencies
 ├── README.md           # This file
 └── data/
